@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Rewear — Clothing Exchange",
+  "short_name": "Rewear",
+  "description": "Discover, share, and swap thoughtfully with your local clothing community.",
+  "start_url": "/browse",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f8f7f2",
+  "theme_color": "#f8f7f2",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    { "src": "/rewear-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

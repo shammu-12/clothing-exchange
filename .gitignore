@@ -1,0 +1,30 @@
+node_modules/
+dist/
+**/build/
+.gradle/
+**/.gradle/
+
+# Keep local credentials and environment overrides out of Git.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# Local device/build files and uploaded user content.
+frontend/android/local.properties
+frontend/android/app/src/main/assets/public/
+frontend/ios/App/Pods/
+frontend/ios/App/*.xcuserstate
+frontend/ios/App.xcworkspace/xcuserdata/
+frontend/ios/App/App/public/
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Signing keys and machine-specific files.
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+.DS_Store
+Thumbs.db
+*.log
