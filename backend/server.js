@@ -13,7 +13,7 @@ const chatRoutes = require("./routes/chatRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const communityRoutes = require("./routes/communityRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 dotenv.config();
 
@@ -92,9 +92,9 @@ app.use(
 
 app.use("/api/messages", chatRoutes);
 app.use("/api/community", communityRoutes);
+app.use("/api/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/uploads", uploadRoutes);
-app.use("/api/payments", paymentRoutes);
 
 // ==========================================
 // 404 ROUTE

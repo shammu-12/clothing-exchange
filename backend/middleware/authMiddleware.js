@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -17,7 +18,12 @@ const protect = (req, res, next) => {
       process.env.JWT_SECRET
     );
 
-    req.user = decoded;
+    const user = await User.findById(decoded.id).select("accountStatus role");
+    if (!user || user.accountStatus === "Suspended") {
+      return res.status(403).json({ message: "This account is unavailable. Contact support." });
+    }
+
+    req.user = { ...decoded, role: user.role };
 
     next();
   } catch (error) {

@@ -111,6 +111,10 @@ const loginUser = async (req, res) => {
       });
     }
 
+    if (user.accountStatus === "Suspended") {
+      return res.status(403).json({ message: "This account is suspended. Contact support for help." });
+    }
+
     // Create JWT
     const token = jwt.sign(
       {

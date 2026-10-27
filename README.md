@@ -38,7 +38,7 @@ To use a separately hosted API, set `VITE_API_URL` in the frontend environment t
 - `/swap-requests` and `/chat/:swapId` — proposed item-for-item exchanges, value comparisons, and conversations.
 - Accepted swap chats include local/remote delivery planning. Participants can share their own courier and tracking details; carrier booking and automatic tracking updates require a configured provider API.
 - `/profile` — profile settings.
-- `/admin` — administrator overview and listing moderation.
+- `/admin` — administrator overview, member suspension/restoration, swap activity, listing moderation, dispute resolution, and downloadable CSV analytics. Members can report listings, community posts, or a swap from its private chat.
 
 For distance matching, members can attach an approximate map point while creating or editing a listing. Browser geolocation is requested only after a member chooses the location action; the API rounds coordinates to two decimal places before storing them.
 
@@ -48,11 +48,11 @@ Run `npm run build` from `frontend`. Render service definitions are in `render.y
 
 The client is configured as an installable Progressive Web App. Production builds register a service worker and cache the app shell and static assets for offline opening; live listings, account actions, chat, and other API features still need an internet connection. On supported browsers, use **Install app** when it appears, or the browser's **Add to Home Screen** option.
 
-## Native Android app
+## Native app scaffolding (outside Phase 1)
 
-The React client also has Capacitor projects in `frontend/android` and `frontend/ios`. Configure `VITE_API_URL` to the deployed API's `/api` URL before building so the installed app can reach its backend. From `frontend`, run `npm install`, then `npm run mobile:sync`. For Android, install Android Studio and an Android SDK (API 24 or newer), open with `npm run android:open`, and build an APK or Android App Bundle. Location permission is requested by Android when a member chooses approximate location. The native app uses the same accounts and marketplace API as the web app; it needs internet access for listings, login, swaps, and chat.
+Capacitor project files are present as future-work scaffolding. A signed native Android or iOS app is not a Phase 1 deliverable; the responsive web app/PWA is the mobile experience for this submission.
 
-iOS project generation is included, but signing and building it require macOS with Xcode; this Windows workspace does not produce an iOS app build.
+iOS signing and building require macOS with Xcode.
 
 ## Public deployment prerequisites
 
@@ -68,10 +68,4 @@ See [PRD.md](PRD.md) for product requirements, scope, user flows, data, and deli
 
 The browse page can rank available pieces against a signed-in member's listed wardrobe using size, category, type, colour, estimated value, and available distance. Matching happens in the browser using marketplace data already loaded for browsing; no wardrobe details are sent to a third-party AI service. This is a transparent local matching feature, not a generative AI service. The installable PWA provides the mobile-friendly app experience; it is not a separate native Android/iOS package.
 
-Online payment checkout uses the optional Razorpay integration described below. Courier booking remains manual.
-
-## Courier contribution checkout
-
-Accepted remote swaps let each participant save an agreed courier contribution amount and open Razorpay Checkout. The API creates INR orders from the saved shipment amount, verifies the checkout HMAC with the server-only secret, and confirms the provider reports the exact order and amount as captured before recording a payment as paid. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in backend/.env using Razorpay test credentials first; enable automatic capture in the Razorpay account. Never put the secret in the frontend or commit .env. Switch to live credentials only after merchant onboarding and production review.
-
-**Payment recipient limitation:** the payment is collected into the Rewear Razorpay merchant account. It does not pay the courier, book a shipment, escrow funds, or automatically reimburse the other swap participant. Both members must agree who will pay the carrier and settle any reimbursement separately. Do not enable live credentials until that arrangement is acceptable. A real carrier booking/API integration is still needed to charge and pay the carrier directly.
+Swaps are non-monetary. Members arrange any delivery and costs between themselves; the platform does not collect payments or book couriers.

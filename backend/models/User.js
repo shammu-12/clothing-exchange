@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      minlength: 6,
+      minlength: 8,
     },
 
     profileImage: {
@@ -36,6 +36,12 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "admin"],
       default: "user",
+    },
+
+    accountStatus: {
+      type: String,
+      enum: ["Active", "Suspended"],
+      default: "Active",
     },
   },
   {

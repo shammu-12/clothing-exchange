@@ -6,7 +6,6 @@ const shipmentSchema = new mongoose.Schema({
   trackingNumber: { type: String, trim: true, maxlength: 120, default: "" },
   trackingUrl: { type: String, trim: true, maxlength: 500, default: "" },
   status: { type: String, enum: ["Preparing", "Label created", "In transit", "Delivered"], default: "Preparing" },
-  courierFee: { type: Number, min: 0, max: 100000, default: 0 },
 }, { timestamps: true });
 
 const swapRequestSchema = new mongoose.Schema(

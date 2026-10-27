@@ -126,7 +126,7 @@ const getAllClothing = async (req, res) => {
 
     let listingQuery = Clothing.find(filters).populate(
         "owner",
-        "name email location"
+        "name location profileImage"
       );
     if (!nearbySearch) listingQuery = listingQuery.sort({ createdAt: -1 });
     const clothing = await listingQuery;
@@ -183,7 +183,7 @@ const getClothingById = async (req, res) => {
       await Clothing.findById(req.params.id)
         .populate(
           "owner",
-          "name email location"
+          "name location profileImage"
         );
 
     if (!clothing) {

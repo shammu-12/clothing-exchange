@@ -35,7 +35,7 @@ Fast fashion has increased clothing consumption, textile waste, and environmenta
 - Accepted swaps can be arranged as local hand-offs or remote delivery. Each participant can record their courier, tracking reference/link, and manually updated parcel status.
 - Public sustainable-fashion community feed with swap stories, care and repair tips, slow-fashion discussions, reactions, and live marketplace impact counts.
 - Dashboard with real listing and exchange counts.
-- Administrator overview and listing moderation, including removing an unavailable or inappropriate listing.
+- Administrator overview, member suspension/restoration, swap activity review, listing moderation, dispute/report resolution, and downloadable CSV analytics.
 - Render deployment configuration for a separately configured API and static web client.
 
 ### Phase 1 — excluded
@@ -114,12 +114,13 @@ Administrator signs in → review platform overview → inspect clothing listing
 
 ## Data requirements
 
-- **Member:** name, email, hashed password, role, location, optional profile image, timestamps.
+- **Member:** name, email, hashed password, role, active/suspended account status, location, optional profile image, timestamps.
 - **Clothing listing:** title, description, category, type, size, condition, brand, colour, neighbourhood label, optional rounded GeoJSON location point, image path/URL, estimated value, status, owner, timestamps.
 - **Swap request:** requested listing, offered listing, requester, owner, note, status, timestamps.
 - **Message:** swap request, sender, body, timestamp.
 - **Shipment:** swap request, sending participant, courier, tracking number/link, participant-updated parcel status.
 - **Community post:** member, topic, body, appreciation reactions, timestamps.
+- **Report/dispute:** reporter, listing/swap/community target, reason, details, open/resolved/dismissed state, resolution note, resolving administrator, timestamps.
 
 Passwords must never be stored in plain text. Listing ownership and swap participation must be checked on the server for every protected operation.
 
@@ -171,6 +172,52 @@ The current dashboard exposes live member/listing/request totals and completed s
 - [x] Interconnected marketplace, detail, request, chat, dashboard, profile, wardrobe, and administrator screens.
 - [x] Real API-backed browsing, listings, one-to-one swap offers, value comparison, messaging, dashboard metrics, and moderation.
 - [x] Responsive presentation and loading, empty, and error states.
-- [x] Production frontend bundle builds successfully.
-- [x] Backend JavaScript syntax verified and local MongoDB connection confirmed.
+- [x] Production frontend bundle, frontend lint, and backend syntax verified for the current submission revision.
 - [ ] Public deployment URL: connect a GitHub repository in the owner's Render account and provide a cloud-reachable MongoDB URI. The current local database only listens on this computer. Render's Blueprint is configured to wire the client and API hostnames; uploaded-photo persistence needs a configured persistent or object store.
+
+## Submission requirements from the project brief
+
+The screenshots supplied with the project brief are the evaluation requirements. Treat this checklist as authoritative alongside the detailed functional requirements above. A checked item must be demonstrated by the running application or verified deployment; a written plan alone does not count as implementation.
+
+### Problem, objectives, and scope
+
+- Address unused wearable clothing, the lack of a dedicated swap marketplace, complicated resale pricing, and limited sustainable-fashion options.
+- Make direct, non-monetary clothing swaps the main exchange model; encourage reuse and support neighbourhood-level discovery.
+- Primary objectives: provide a dedicated exchange marketplace, direct swaps without purchase transactions, sustainable reuse, and location-based matching. The brief repeats location-based matching; keep it as one objective in the implementation.
+- Secondary objectives: let members discuss an exchange, estimate indicative item values, filter by category and location, and build a sustainable-fashion community.
+- Phase 1 screens: login/register, clothing listings, item details, swap requests, chat, member dashboard, and admin panel. Keep these screens connected through working navigation and data-backed flows.
+- Out of Phase 1: online purchase/payment, AI-generated fashion advice, augmented-reality try-on, and a separate native mobile application. The responsive website may be installable as a PWA; do not describe that as a native app.
+- Remote courier booking and automatic carrier tracking are not part of the first release. Participants may arrange delivery themselves and record tracking details.
+
+### Functional coverage
+
+- User module: register/login, profile, create listings with photos/details, browse listings, send swap offers, and review swap history.
+- Listing module: upload an image, describe type/size/brand/condition, show an estimated swap value and availability, and edit/remove owned listings.
+- Swap module: send requests, review incoming requests, accept/reject, and track status.
+- Negotiation chat: private member-to-member discussion of item details, exchange terms, and confirmation.
+- Value guidance: estimate from category, condition, and brand; compare both items; label the estimate as guidance, never a cash price or required balancing payment.
+- Location matching: browse by city/neighbourhood and opt-in approximate distance; do not expose exact or continuous user location.
+- Admin module: review members and platform activity, suspend/restore accounts, moderate listings, resolve/dismiss member-submitted reports and swap disputes, and download database-derived analytics as CSV.
+
+### Quality, stack, and flows
+
+- Non-functional expectations: secure authentication and protected data, responsive layout, fast search/listing access, safe data persistence, scalable deployment, clear validation, and privacy protection.
+- Suggested stack in the brief: HTML5, CSS3, JavaScript, React, Bootstrap/Tailwind; Node.js/Express; MongoDB or PostgreSQL; optional cloud storage; AWS, Render, or Vercel. The implementation uses React/Vite with custom CSS, Express/Mongoose/MongoDB, and a Render blueprint.
+- Member flow: register/sign in → create profile → list clothing → browse/filter → choose a piece to offer → compare guidance values → send request → chat → arrange local exchange or self-managed shipping.
+- Admin flow: sign in as administrator → review live totals → inspect listings, members, swaps, and reports → moderate listings or resolve disputes → download a CSV analytics report.
+
+### Data, KPIs, and impact
+
+- Store member name/email/hashed password/role/location; listing ID/type/brand/size/condition/value/location; swap requests and statuses; private chat history; and shipment details where participants choose remote delivery.
+- KPIs requested: listing count, completed swaps, user engagement, request conversion, and active users. Current data supports member count, available listing count, pending request count, completed swap count, and a basic completed-request ratio. Engagement/activity rates require event instrumentation and must not be invented.
+- Intended impact: less textile waste, sustainable fashion habits, affordable access to clothing, community exchange, and lower impact from fast fashion. These are goals, not quantified claims without measured data.
+- Assumptions: members are willing to exchange clothes and provide accurate item details; courier services can be arranged by participants. Constraints: item quality depends on the member, swap fairness is negotiated, and shipping costs may affect participation.
+- Future ideas: AI-based recommendations, native mobile app, item-condition verification, better sustainability measurement, community groups, and delivery-provider integration.
+
+### Deliverables and final evaluation gate
+
+- Required deliverables: interconnected marketplace screens, listing/browsing, functioning swap and chat flows, location matching, admin moderation, complete PRD, and a live deployed application URL.
+- Use realistic listings sourced from the database. Do not present hard-coded sample users, metrics, swap history, or placeholder marketplace listings as real activity. Empty states are appropriate when the database has no records.
+- Validate input and enforce authentication, ownership, participant, and administrator permissions on the server.
+- Run the available production build and lint checks before submission; verify key user flows against a configured database. Do not mark the project fully tested until those checks have actually passed.
+- A live URL is mandatory for final evaluation. It is still outstanding until a public deployment and cloud-reachable database are configured and verified.

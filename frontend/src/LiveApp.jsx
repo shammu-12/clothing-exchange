@@ -27,14 +27,6 @@ const distanceKm = (firstPoint, secondPoint) => {
   const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
-const loadRazorpay = () => new Promise((resolve) => {
-  if (window.Razorpay) return resolve(true);
-  const script = document.createElement("script");
-  script.src = "https://checkout.razorpay.com/v1/checkout.js";
-  script.onload = () => resolve(true);
-  script.onerror = () => resolve(false);
-  document.body.appendChild(script);
-});
 const recommendationScore = (item, wardrobe) => {
   if (!wardrobe.length) return 0;
   return wardrobe.reduce((best, piece) => {
@@ -82,6 +74,25 @@ function ApproximateLocationPicker({ value, onChange }) {
 }
 function RequireAuth({ children }) { return authenticated() ? children : <Navigate to="/login" replace />; }
 function ListingCard({ item, onSwap, mine = false, onDelete }) { return <article className="live-card"><img src={imageUrl(item.image)} alt={item.title} /><div className="live-card-body"><div className="live-card-top"><h3>{item.title}</h3><span>₹{item.estimatedValue || 0}</span></div><p>{item.brand || item.type} · {item.size} · {item.condition}</p><p className="live-muted">{item.location || item.owner?.location || "Location not specified"}{Number.isFinite(item.distanceKm) ? ` · ${item.distanceKm < 10 ? item.distanceKm.toFixed(1) : Math.round(item.distanceKm)} km away` : ""}</p><span className={`live-status ${item.status?.toLowerCase()}`}>{item.status || "Available"}</span>{mine ? <div className="live-actions"><Link className="live-button secondary" to={`/edit-listing/${item._id}`}>Edit</Link><button className="live-button danger" onClick={() => onDelete(item._id)}>Remove</button></div> : <div className="live-actions"><Link className="live-button secondary" to={`/clothing/${item._id}`}>Details</Link><button className="live-button" disabled={item.status !== "Available"} onClick={() => onSwap(item)}>Request swap</button></div>}</div></article>; }
+
+function ReportButton({ targetType, targetId, label = "Report" }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState(targetType === "Swap" ? "Swap dispute" : "Safety concern");
+  const [details, setDetails] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const submit = async (event) => {
+    event.preventDefault();
+    setError("");
+    try {
+      await API.post("/reports", { targetType, targetId, reason, details });
+      setMessage("Sent to the moderation team.");
+      setOpen(false);
+    } catch (err) { setError(err.response?.data?.message || "Unable to send your report."); }
+  };
+  if (!authenticated()) return <Link className="live-text-button" to="/login">Sign in to report</Link>;
+  return <div className="report-control"><button className="live-text-button" type="button" onClick={() => setOpen(!open)}>{open ? "Cancel" : label}</button>{message && <small role="status">{message}</small>}{open && <form onSubmit={submit}><label>Reason<select value={reason} onChange={(event) => setReason(event.target.value)}><option>Safety concern</option><option>Inappropriate content</option><option>Misleading listing</option><option>Swap dispute</option><option>Other</option></select></label><label>Details<textarea value={details} onChange={(event) => setDetails(event.target.value)} maxLength={1500} placeholder="Tell the moderation team what happened (optional)."/></label>{error && <Notice error={error}/>}<button className="live-button">Send report</button></form>}</div>;
+}
 
 function SwapRequestModal({ item, close, onSubmit }) {
   const [wardrobe, setWardrobe] = useState([]); const [offerId, setOfferId] = useState(""); const [note, setNote] = useState(""); const [error, setError] = useState(""); const [loading, setLoading] = useState(true); const [sending, setSending] = useState(false);
@@ -206,7 +217,7 @@ function Browse({ nearby = false }) {
     </Shell>
   );
 }
-function Auth({ register = false }) { const navigate = useNavigate(); const [mode, setMode] = useState(register); const [form, setForm] = useState({ name: "", email: "", password: "", location: "" }); const [error, setError] = useState(""); const [loading, setLoading] = useState(false); const submit = async (event) => { event.preventDefault(); setLoading(true); setError(""); try { const { data } = await API.post(mode ? "/auth/register" : "/auth/login", mode ? form : { email: form.email, password: form.password }); localStorage.setItem("token", data.token); localStorage.setItem("user", JSON.stringify(data.user)); navigate("/dashboard"); } catch (err) { setError(err.response?.data?.message || "Please try again."); } finally { setLoading(false); } }; const field = (name, label, type = "text", required = true) => <label>{label}<input type={type} required={required} value={form[name]} onChange={(e) => setForm({ ...form, [name]: e.target.value })} /></label>; return <main className="live-auth"><form onSubmit={submit}><Link className="live-brand" to="/browse">↺ Rewear</Link><h1>{mode ? "Join Rewear" : "Welcome back"}</h1>{mode && field("name", "Full name")}{field("email", "Email", "email")}{field("password", "Password", "password")}{mode && field("location", "Location", "text", false)}<Notice error={error} /><button className="live-button" disabled={loading}>{loading ? "Please wait…" : mode ? "Create account" : "Sign in"}</button><button className="live-text-button" type="button" onClick={() => { setMode(!mode); setError(""); }}>{mode ? "Already a member? Sign in" : "New here? Create an account"}</button></form></main>; }
+function Auth({ register = false }) { const navigate = useNavigate(); const [mode, setMode] = useState(register); const [form, setForm] = useState({ name: "", email: "", password: "", location: "" }); const [error, setError] = useState(""); const [loading, setLoading] = useState(false); const submit = async (event) => { event.preventDefault(); setLoading(true); setError(""); try { const { data } = await API.post(mode ? "/auth/register" : "/auth/login", mode ? form : { email: form.email, password: form.password }); localStorage.setItem("token", data.token); localStorage.setItem("user", JSON.stringify(data.user)); navigate("/dashboard"); } catch (err) { setError(err.response?.data?.message || "Please try again."); } finally { setLoading(false); } }; const field = (name, label, type = "text", required = true) => <label>{label}<input type={type} required={required} minLength={mode && name === "password" ? 8 : undefined} autoComplete={name === "password" ? mode ? "new-password" : "current-password" : name === "email" ? "email" : undefined} value={form[name]} onChange={(e) => setForm({ ...form, [name]: e.target.value })} /></label>; return <main className="live-auth"><form onSubmit={submit}><Link className="live-brand" to="/browse">↺ Rewear</Link><h1>{mode ? "Join Rewear" : "Welcome back"}</h1>{mode && field("name", "Full name")}{field("email", "Email", "email")}{field("password", "Password", "password")}{mode && field("location", "Location", "text", false)}<Notice error={error} /><button className="live-button" disabled={loading}>{loading ? "Please wait…" : mode ? "Create account" : "Sign in"}</button><button className="live-text-button" type="button" onClick={() => { setMode(!mode); setError(""); }}>{mode ? "Already a member? Sign in" : "New here? Create an account"}</button></form></main>; }
 
 function AddListing() {
   const navigate = useNavigate();
@@ -328,56 +339,31 @@ function CourierPanel({ swapId, swap, setSwap }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState("");
-  const [courierFee, setCourierFee] = useState("");
-  const [payment, setPayment] = useState({ enabled: false, paid: false });
-  const [paying, setPaying] = useState(false);
   const user = storedUser();
   const ownShipment = swap.shipments?.find((shipment) => (shipment.sender?._id || shipment.sender)?.toString() === user?.id);
   const otherShipments = swap.shipments?.filter((shipment) => (shipment.sender?._id || shipment.sender)?.toString() !== user?.id) || [];
 
   useEffect(() => {
     setMode(swap.deliveryMode || "Local");
-    if (ownShipment) { setCarrier(ownShipment.carrier || ""); setTrackingNumber(ownShipment.trackingNumber || ""); setTrackingUrl(ownShipment.trackingUrl || ""); setStatus(ownShipment.status || "Preparing"); setCourierFee(ownShipment.courierFee ? String(ownShipment.courierFee) : ""); }
-    if (swap.deliveryMode === "Remote" && swap.status === "Accepted") {
-      Promise.all([API.get("/payments/config"), API.get(`/payments/courier/${swapId}`)]).then(([config, statusResponse]) => setPayment({ enabled: config.data.enabled, paid: statusResponse.data.paid })).catch(() => setPayment({ enabled: false, paid: false }));
-    }
+    if (ownShipment) { setCarrier(ownShipment.carrier || ""); setTrackingNumber(ownShipment.trackingNumber || ""); setTrackingUrl(ownShipment.trackingUrl || ""); setStatus(ownShipment.status || "Preparing"); }
   }, [swap, swapId]);
 
   const save = async (event) => {
     event.preventDefault(); setSaving(true); setError(""); setSaved("");
     try {
       const payload = { deliveryMode: mode };
-      if (mode === "Remote") Object.assign(payload, { carrier, trackingNumber, trackingUrl, status, courierFee: Number(courierFee) || 0 });
+      if (mode === "Remote") Object.assign(payload, { carrier, trackingNumber, trackingUrl, status });
       const { data } = await API.patch(`/swaps/${swapId}/shipping`, payload);
       setSwap(data.request); setSaved("Delivery details saved.");
     } catch (err) { setError(err.response?.data?.message || "Unable to save delivery details."); }
     finally { setSaving(false); }
   };
 
-  const payCourierContribution = async () => {
-    setPaying(true); setError(""); setSaved("");
-    try {
-      if (!ownShipment || Number(courierFee) !== Number(ownShipment.courierFee || 0)) throw new Error("Save your courier details and agreed amount before paying.");
-      const loaded = await loadRazorpay();
-      if (!loaded) throw new Error("Secure checkout could not load. Check your internet connection and try again.");
-      const { data: order } = await API.post("/payments/courier/order", { swapId });
-      if (order.paid) { setPayment((current) => ({ ...current, paid: true })); setSaved("Payment already verified."); setPaying(false); return; }
-      const checkout = new window.Razorpay({ key: order.keyId, amount: order.amount, currency: order.currency, name: order.merchantName, description: "Agreed courier contribution", order_id: order.orderId, modal: { ondismiss: () => setPaying(false) }, handler: async (response) => {
-        try { const { data } = await API.post("/payments/courier/verify", { orderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id, signature: response.razorpay_signature }); setPayment((current) => ({ ...current, paid: data.paid })); setSaved(data.message || "Payment verified."); }
-        catch (err) { setError(err.response?.data?.message || "Payment completed, but verification is still pending. Contact support with your payment ID."); }
-        finally { setPaying(false); }
-      } });
-      checkout.on("payment.failed", (response) => { setError(response.error?.description || "Payment did not complete."); setPaying(false); });
-      checkout.open();
-    } catch (err) { setError(err.response?.data?.message || err.message || "Unable to start payment."); setPaying(false); }
-  };
-
   return <section className="courier-panel"><div className="courier-heading"><div><p className="live-kicker">LOCAL HAND-OFF OR REMOTE DELIVERY</p><h2>Plan the exchange</h2></div><span className={`courier-mode ${mode.toLowerCase()}`}>{mode}</span></div><p className="courier-explainer">Choose how you’ll exchange. For remote swaps, each person can add their own courier and tracking details.</p>
     <form onSubmit={save}><label>Exchange method<select value={mode} onChange={(event) => setMode(event.target.value)}><option>Local</option><option>Remote</option></select></label>
-      {mode === "Remote" && <><div className="courier-fields"><label>Courier<input required maxLength={80} value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="e.g. India Post, DTDC, DHL" /></label><label>Agreed courier amount (₹)<input type="number" min="0" max="100000" step="1" value={courierFee} onChange={(event) => setCourierFee(event.target.value)} placeholder="Enter the amount agreed" /></label><label>Tracking number<input maxLength={120} value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} placeholder="Add when the parcel is booked" /></label><label className="courier-url-field">Courier tracking URL<input type="url" value={trackingUrl} onChange={(event) => setTrackingUrl(event.target.value)} placeholder="https://… (optional)" /></label><label>Parcel status<select value={status} onChange={(event) => setStatus(event.target.value)}><option>Preparing</option><option>Label created</option><option>In transit</option><option>Delivered</option></select></label></div><small className="courier-note">Use your courier’s tracking page. Rewear stores the reference and link; booking and live carrier updates aren’t connected yet.</small></>}
+      {mode === "Remote" && <><div className="courier-fields"><label>Courier<input required maxLength={80} value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="e.g. India Post, DTDC, DHL" /></label><label>Tracking number<input maxLength={120} value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} placeholder="Add when the parcel is booked" /></label><label className="courier-url-field">Courier tracking URL<input type="url" value={trackingUrl} onChange={(event) => setTrackingUrl(event.target.value)} placeholder="https://… (optional)" /></label><label>Parcel status<select value={status} onChange={(event) => setStatus(event.target.value)}><option>Preparing</option><option>Label created</option><option>In transit</option><option>Delivered</option></select></label></div><small className="courier-note">Use your courier’s tracking page. Rewear stores the reference and link; booking and live carrier updates aren’t connected yet.</small></>}
       {error && <Notice error={error}/>}<div className="courier-save-row"><button className="live-button" disabled={saving || (mode === "Remote" && !carrier.trim())}>{saving ? "Saving…" : "Save delivery plan"}</button>{saved && <span>{saved}</span>}</div>
     </form>
-    {mode === "Remote" && swap.status === "Accepted" && <div className="courier-payment"><p><b>Courier contribution</b> · ₹{Number(courierFee || 0).toLocaleString("en-IN")}</p><small>Razorpay checkout pays the Rewear merchant account. It does not book a courier or transfer money to the carrier; arrange and settle delivery with your swap partner.</small>{error && <Notice error={error}/>}<button type="button" className="live-button" disabled={paying || payment.paid || !payment.enabled || Number(courierFee) <= 0} onClick={payCourierContribution}>{payment.paid ? "Contribution paid ✓" : paying ? "Opening secure checkout…" : payment.enabled ? "Pay courier contribution ↗" : "Payments need Razorpay keys"}</button>{payment.paid && <span className="payment-paid-note">Verified payment recorded for this account.</span>}</div>}
     {mode === "Remote" && otherShipments.map((shipment) => <article className="courier-other" key={shipment._id}><b>{shipment.sender?.name || "Your swap partner"}’s parcel</b><span>{shipment.carrier} · {shipment.status}{shipment.trackingNumber ? ` · ${shipment.trackingNumber}` : ""}</span>{shipment.trackingUrl && <a href={shipment.trackingUrl} target="_blank" rel="noreferrer">Open tracking page ↗</a>}</article>)}
   </section>;
 }
@@ -392,7 +378,7 @@ function Chat() {
   };
   useEffect(() => { loadMessages(); API.get(`/swaps/${swapId}`).then(({ data }) => setSwap(data.request)).catch((err) => setError(err.response?.data?.message || "Unable to load swap delivery details.")); const timer = setInterval(() => loadMessages(true), 5000); return () => clearInterval(timer); }, [swapId]);
   const send = async (event) => { event.preventDefault(); if (!body.trim()) return; try { const { data } = await API.post(`/messages/${swapId}`, { body: body.trim() }); setMessages((current) => [...current, data.message]); setBody(""); setError(""); } catch (err) { setError(err.response?.data?.message || "Unable to send message."); } };
-  return <Shell><main className="live-page narrow chat-page"><Link to="/swap-requests">← Back to requests</Link><p className="live-kicker">A CONVERSATION ABOUT A GOOD SWAP</p><h1>Swap chat</h1><Notice error={error}/>{loading ? <Loading/> : <>{swap?.status === "Accepted" && <CourierPanel swapId={swapId} swap={swap} setSwap={setSwap}/>}<section className="live-chat"><div className="live-messages">{messages.length ? messages.map((message) => <p className={message.sender?._id === user?.id ? "mine" : ""} key={message._id}>{message.body}</p>) : <p className="live-muted">Say hello, share details, and agree how you’ll exchange your pieces.</p>}</div><form onSubmit={send}><input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a message…" aria-label="Write a message"/><button className="live-button" disabled={!body.trim()}>Send ↗</button></form></section></>}<p className="chat-note">For a smooth exchange, agree on item condition, hand-off or delivery, and timing in this chat.</p></main></Shell>;
+  return <Shell><main className="live-page narrow chat-page"><Link to="/swap-requests">← Back to requests</Link><p className="live-kicker">A CONVERSATION ABOUT A GOOD SWAP</p><h1>Swap chat</h1><Notice error={error}/>{loading ? <Loading/> : <>{swap?.status === "Accepted" && <CourierPanel swapId={swapId} swap={swap} setSwap={setSwap}/>}<section className="live-chat"><div className="live-messages">{messages.length ? messages.map((message) => <p className={message.sender?._id === user?.id ? "mine" : ""} key={message._id}>{message.body}</p>) : <p className="live-muted">Say hello, share details, and agree how you’ll exchange your pieces.</p>}</div><form onSubmit={send}><input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a message…" aria-label="Write a message"/><button className="live-button" disabled={!body.trim()}>Send ↗</button></form></section><ReportButton targetType="Swap" targetId={swapId} label="Raise a swap dispute" /></>}<p className="chat-note">For a smooth exchange, agree on item condition, hand-off or delivery, and timing in this chat.</p></main></Shell>;
 }
 
 function Profile() { const navigate = useNavigate(); const [user, setUser] = useState(null); const [error, setError] = useState(""); useEffect(() => { API.get("/auth/profile").then(({ data }) => setUser(data.user)).catch((err) => setError(err.response?.data?.message || "Unable to load profile.")); }, []); const save = async (event) => { event.preventDefault(); try { const { data } = await API.patch("/auth/profile", user); localStorage.setItem("user", JSON.stringify(data.user)); setUser(data.user); } catch (err) { setError(err.response?.data?.message || "Unable to update profile."); } }; const logout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); navigate("/browse"); }; if (!user) return <Shell><main className="live-page"><Notice error={error} /><Loading /></main></Shell>; return <Shell><main className="live-page narrow"><h1>My profile</h1><form className="live-form" onSubmit={save}><label>Name<input value={user.name} onChange={(e) => setUser({ ...user, name: e.target.value })} /></label><label>Location<input value={user.location || ""} onChange={(e) => setUser({ ...user, location: e.target.value })} /></label><label>Profile image URL<input value={user.profileImage || ""} onChange={(e) => setUser({ ...user, profileImage: e.target.value })} /></label><Notice error={error} /><button className="live-button">Save profile</button><button className="live-button danger" type="button" onClick={logout}>Sign out</button></form></main></Shell>; }
@@ -439,14 +425,76 @@ function Community() {
     <div className="community-layout"><section className="community-feed"><div className="community-feed-heading"><div><p className="live-kicker">FROM THE COMMUNITY</p><h2>Ideas worth passing on.</h2></div><div className="community-topics">{["All", "Swap story", "Care & repair", "Slow fashion"].map((value) => <button type="button" key={value} className={topic === value ? "active" : ""} onClick={() => { setTopic(value); load(value); }}>{value}</button>)}</div></div>
       <Notice error={error}/>
       {authenticated() ? <form className="community-compose" onSubmit={submit}><label>Share a story, question, or useful tip<textarea value={body} onChange={(event) => setBody(event.target.value)} maxLength={1000} minLength={8} required placeholder="What have you learned about swapping, mending, or buying less?"/></label><div><select aria-label="Post topic" value={postTopic} onChange={(event) => setPostTopic(event.target.value)}><option>Swap story</option><option>Care & repair</option><option>Slow fashion</option></select><span>{body.length}/1000</span><button className="live-button" disabled={sending}>{sending ? "Sharing…" : "Share with the community ↗"}</button></div></form> : <div className="community-join"><span>Have a good rewear story?</span><Link className="live-button" to="/register">Join the community ↗</Link></div>}
-      {loading ? <Loading/> : posts.length ? <div className="community-posts">{posts.map((post) => { const liked = post.likes?.some((id) => (id?._id || id).toString() === user?.id); return <article className="community-post" key={post._id}><header><span className="community-avatar">{initials(post.author?.name)}</span><div><b>{post.author?.name || "Rewear member"}</b><small>{post.author?.location || "Community member"} · {new Date(post.createdAt).toLocaleDateString()}</small></div><span className="community-topic">{post.topic}</span></header><p>{post.body}</p><footer><button type="button" className={liked ? "liked" : ""} onClick={() => like(post)} aria-label={liked ? "Remove appreciation" : "Appreciate this post"}>♡ {post.likes?.length || 0} appreciate</button></footer></article>; })}</div> : <div className="live-empty"><h3>A good idea can start here.</h3><p>Be the first to share a swap story, repair tip, or slower-fashion thought.</p></div>}
+      {loading ? <Loading/> : posts.length ? <div className="community-posts">{posts.map((post) => { const liked = post.likes?.some((id) => (id?._id || id).toString() === user?.id); return <article className="community-post" key={post._id}><header><span className="community-avatar">{initials(post.author?.name)}</span><div><b>{post.author?.name || "Rewear member"}</b><small>{post.author?.location || "Community member"} · {new Date(post.createdAt).toLocaleDateString()}</small></div><span className="community-topic">{post.topic}</span></header><p>{post.body}</p><footer><button type="button" className={liked ? "liked" : ""} onClick={() => like(post)} aria-label={liked ? "Remove appreciation" : "Appreciate this post"}>♡ {post.likes?.length || 0} appreciate</button><ReportButton targetType="CommunityPost" targetId={post._id} label="Report post" /></footer></article>; })}</div> : <div className="live-empty"><h3>A good idea can start here.</h3><p>Be the first to share a swap story, repair tip, or slower-fashion thought.</p></div>}
     </section><aside className="community-sidebar"><p className="live-kicker">SMALL HABITS, LONGER LIVES</p><h2>Make a little more of what you have.</h2><article><span>01 / CARE</span><b>Wash less, air more</b><p>Spot-clean when you can and let clothes air between wears.</p></article><article><span>02 / REPAIR</span><b>Fix one small thing</b><p>A loose button or tiny seam can give a favourite another season.</p></article><article><span>03 / SHARE</span><b>Pass pieces along</b><p>Swap the things you no longer reach for with someone who will.</p></article><Link to="/nearby">Find local swap pieces ↗</Link></aside></div>
   </main></Shell>;
 }
 
 function Dashboard() { const [stats, setStats] = useState(null); const [error, setError] = useState(""); const user = storedUser(); useEffect(() => { Promise.all([API.get("/clothing/my"), API.get("/swaps/sent"), API.get("/swaps/received")]).then(([listings, sent, received]) => { const pieces=listings.data.clothing||[]; const swaps=[...(sent.data.requests||[]),...(received.data.requests||[])]; setStats({pieces,swaps,pending:swaps.filter((item)=>item.status==="Pending").length,completed:swaps.filter((item)=>item.status==="Completed").length,value:pieces.reduce((sum,item)=>sum+(item.estimatedValue||0),0)}); }).catch((err)=>setError(err.response?.data?.message||"Unable to load your wardrobe overview.")); }, []); return <Shell><main className="live-page dashboard-page"><section className="dashboard-welcome"><div><p className="live-kicker">YOUR CIRCULAR WARDROBE</p><h1>Good to see you, {user?.name?.split(" ")[0]||"friend"}.</h1><p>Every piece you share makes a little more room for something new.</p></div><Link className="live-button" to="/add-clothing">＋ List a piece</Link></section><Notice error={error}/>{stats?<><div className="live-stats"><div><b>{stats.pieces.length}</b>Pieces shared</div><div><b>{stats.completed}</b>Swaps completed</div><div><b>{stats.pending}</b>Conversations in progress</div><div><b>₹{stats.value.toLocaleString("en-IN")}</b>Estimated wardrobe value</div></div><section className="dashboard-shortcuts"><Link to="/my-listings"><span>01</span><b>My wardrobe</b><small>Update or remove your pieces</small><i>↗</i></Link><Link to="/swap-requests"><span>02</span><b>Swap requests</b><small>Reply to your community</small><i>↗</i></Link><Link to="/nearby"><span>03</span><b>Find nearby</b><small>Discover pieces close to home</small><i>↗</i></Link></section><div className="dashboard-section-heading"><div><p className="live-kicker">YOUR LATEST PIECES</p><h2>Out in the world</h2></div><Link to="/my-listings">See your wardrobe ↗</Link></div>{stats.pieces.length?<div className="live-grid">{stats.pieces.slice(0,3).map((item)=><ListingCard item={item} key={item._id} mine onDelete={()=>{}}/>)}</div>:<div className="live-empty"><h3>Your wardrobe is ready for a first piece</h3><p>List a well-loved item to start your rewear story.</p><Link className="live-button" to="/add-clothing">List your first piece ↗</Link></div>}</>:!error&&<Loading/>}</main></Shell>; }
 
-function Admin() { const [overview, setOverview] = useState(null); const [items, setItems] = useState([]); const [error, setError] = useState(""); useEffect(() => { Promise.all([API.get("/admin/overview"), API.get("/admin/listings")]).then(([a, b]) => { setOverview(a.data); setItems(b.data.listings || []); }).catch((err) => setError(err.response?.data?.message || "Administrator access is required.")); }, []); const status = async (id, value) => { try { const { data } = await API.patch(`/admin/listings/${id}`, { status: value }); setItems(items.map((item) => item._id === id ? data.listing : item)); } catch (err) { setError(err.response?.data?.message || "Unable to update listing."); } }; return <Shell><main className="live-page admin-page"><p className="live-kicker">COMMUNITY CARE & PLATFORM HEALTH</p><h1>Admin panel</h1><p>Review marketplace activity and moderate listings.</p><Notice error={error} />{overview && <div className="live-stats"><div><b>{overview.users}</b>Members</div><div><b>{overview.listings}</b>Live listings</div><div><b>{overview.successfulSwaps}</b>Accepted swaps</div><div><b>{overview.pendingSwaps}</b>Pending requests</div></div>}<div className="admin-list-heading"><h2>Clothing listings</h2><span>{items.length} total</span></div><div className="live-admin-list">{items.map((item) => <article key={item._id}><div className="admin-listing-label"><img src={imageUrl(item.image)} alt=""/><span><b>{item.title}</b><small>{item.owner?.name} · {item.location||item.owner?.location||"No location"}</small></span></div><select aria-label={`Moderate ${item.title}`} value={item.status} onChange={(e) => status(item._id, e.target.value)}><option>Available</option><option>Reserved</option><option>Swapped</option><option>Removed</option></select></article>)}</div></main></Shell>; }
+function Admin() {
+  const user = storedUser();
+  const [overview, setOverview] = useState(null);
+  const [items, setItems] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [swaps, setSwaps] = useState([]);
+  const [tab, setTab] = useState("Overview");
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    try {
+      const [overviewResponse, listingResponse, memberResponse, reportResponse, swapResponse] = await Promise.all([
+        API.get("/admin/overview"), API.get("/admin/listings"), API.get("/admin/members"), API.get("/admin/reports"), API.get("/admin/swaps"),
+      ]);
+      setOverview(overviewResponse.data);
+      setItems(listingResponse.data.listings || []);
+      setMembers(memberResponse.data.members || []);
+      setReports(reportResponse.data.reports || []);
+      setSwaps(swapResponse.data.swaps || []);
+      setError("");
+    } catch (err) { setError(err.response?.data?.message || "Administrator access is required."); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const statusListing = async (id, status) => {
+    try { const { data } = await API.patch(`/admin/listings/${id}`, { status }); setItems((current) => current.map((item) => item._id === id ? data.listing : item)); }
+    catch (err) { setError(err.response?.data?.message || "Unable to update listing."); }
+  };
+  const statusMember = async (id, status) => {
+    try { const { data } = await API.patch(`/admin/members/${id}`, { status }); setMembers((current) => current.map((member) => member._id === id ? data.member : member)); }
+    catch (err) { setError(err.response?.data?.message || "Unable to update member."); }
+  };
+  const resolveReport = async (id, status) => {
+    const resolution = window.prompt("Add a short moderation note (optional):", "");
+    if (resolution === null) return;
+    try { const { data } = await API.patch(`/admin/reports/${id}`, { status, resolution }); setReports((current) => current.map((report) => report._id === id ? { ...report, ...data.report } : report)); }
+    catch (err) { setError(err.response?.data?.message || "Unable to update report."); }
+  };
+  const downloadReport = async () => {
+    try {
+      const { data } = await API.get("/admin/analytics.csv", { responseType: "blob" });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = url; link.download = "rewear-marketplace-report.csv"; link.click(); URL.revokeObjectURL(url);
+    } catch (err) { setError(err.response?.data?.message || "Unable to download analytics."); }
+  };
+
+  const tabs = ["Overview", "Members", "Listings", "Swap activity", "Reports"];
+  return <Shell><main className="live-page admin-page">
+    <p className="live-kicker">COMMUNITY CARE & PLATFORM HEALTH</p><h1>Admin panel</h1>
+    <p>Review members, exchange activity, reports, and marketplace listings.</p>
+    <Notice error={error}/>
+    {overview ? <div className="live-stats"><div><b>{overview.users}</b>Members</div><div><b>{overview.listings}</b>Available listings</div><div><b>{overview.successfulSwaps}</b>Completed swaps</div><div><b>{overview.pendingSwaps}</b>Pending requests</div></div> : !error && <Loading/>}
+    <section className="admin-analytics"><div><h2>Marketplace analytics</h2><p>{overview?.totalRequests ?? 0} total swap requests · {overview?.conversionRate ?? 0}% completed-request rate</p><small>Completed swaps divided by all recorded swap requests.</small></div><button className="live-button secondary" type="button" onClick={downloadReport}>Download CSV report</button></section>
+    <div className="live-tabs" role="tablist">{tabs.map((value) => <button type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} key={value} onClick={() => setTab(value)}>{value}{value === "Reports" ? ` (${reports.filter((report) => report.status === "Open").length} open)` : ""}</button>)}</div>
+    {tab === "Overview" && <div className="admin-overview-links"><p>Open reports: <b>{reports.filter((report) => report.status === "Open").length}</b></p><p>Recent swap records: <b>{swaps.length}</b></p><button className="live-button secondary" onClick={load}>Refresh marketplace data</button></div>}
+    {tab === "Listings" && <><div className="admin-list-heading"><h2>Clothing listings</h2><span>{items.length} records</span></div><div className="live-admin-list">{items.map((item) => <article key={item._id}><div className="admin-listing-label"><img src={imageUrl(item.image)} alt=""/><span><b>{item.title}</b><small>{item.owner?.name} · {item.location || item.owner?.location || "No location"}</small></span></div><select aria-label={`Moderate ${item.title}`} value={item.status} onChange={(event) => statusListing(item._id, event.target.value)}><option>Available</option><option>Reserved</option><option>Swapped</option><option>Removed</option></select></article>)}</div></>}
+    {tab === "Members" && <div className="admin-record-list">{members.map((member) => <article key={member._id}><div><b>{member.name}</b><small>{member.email} · {member.location || "No location"} · {member.role}</small></div><div><span className={`live-status ${member.accountStatus === "Suspended" ? "removed" : "available"}`}>{member.accountStatus || "Active"}</span>{member._id !== user?.id && <button className="live-button secondary" onClick={() => statusMember(member._id, member.accountStatus === "Suspended" ? "Active" : "Suspended")}>{member.accountStatus === "Suspended" ? "Restore account" : "Suspend account"}</button>}</div></article>)}</div>}
+    {tab === "Swap activity" && <div className="admin-record-list">{swaps.map((swap) => <article key={swap._id}><div><b>{swap.clothing?.title || "Listing"} ↔ {swap.offeredClothing?.title || "Offer"}</b><small>{swap.requester?.name || "Member"} and {swap.owner?.name || "Member"} · Updated {new Date(swap.updatedAt).toLocaleDateString()}</small></div><span className={`live-status ${swap.status?.toLowerCase()}`}>{swap.status}</span></article>)}</div>}
+    {tab === "Reports" && <div className="admin-record-list">{reports.length ? reports.map((report) => <article key={report._id}><div><b>{report.targetType} · {report.reason}</b><small>Reported by {report.reporter?.name || "Member"} · {report.details || "No additional details"}</small>{report.target?.title && <small>Item: {report.target.title}</small>}{report.target?.clothing?.title && <small>Requested item: {report.target.clothing.title}</small>}{report.target?.offeredClothing?.title && <small>Offered item: {report.target.offeredClothing.title}</small>}{report.target?.body && <small>Post: {report.target.body}</small>}{report.resolution && <small>Resolution: {report.resolution}</small>}</div><div><span className={`live-status ${report.status.toLowerCase()}`}>{report.status}</span>{report.status === "Open" && <><button className="live-button" onClick={() => resolveReport(report._id, "Resolved")}>Resolve</button><button className="live-button secondary" onClick={() => resolveReport(report._id, "Dismissed")}>Dismiss</button></>}</div></article>) : <div className="live-empty"><h3>No reports yet</h3><p>Member reports and swap disputes will appear here.</p></div>}</div>}
+  </main></Shell>;
+}
 
 export default function LiveApp() { return <Routes><Route path="/" element={<Navigate to="/browse" replace />} /><Route path="/browse" element={<Browse />} /><Route path="/nearby" element={<Browse nearby />} /><Route path="/community" element={<Community />} /><Route path="/login" element={<Auth />} /><Route path="/register" element={<Auth register />} /><Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} /><Route path="/add-clothing" element={<RequireAuth><AddListing /></RequireAuth>} /><Route path="/my-listings" element={<RequireAuth><MyListings /></RequireAuth>} /><Route path="/edit-listing/:id" element={<RequireAuth><EditListing /></RequireAuth>} /><Route path="/swap-requests" element={<RequireAuth><Requests /></RequireAuth>} /><Route path="/chat/:swapId" element={<RequireAuth><Chat /></RequireAuth>} /><Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} /><Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} /><Route path="/clothing/:id" element={<ListingDetails />} /><Route path="*" element={<Navigate to="/browse" replace />} /></Routes>; }
 function ListingDetails() {
@@ -492,6 +540,7 @@ function ListingDetails() {
               <div className="detail-value"><span>Estimated swap value</span><b>₹{item.estimatedValue}</b><small>A helpful starting point for your conversation.</small></div>
               <button className="live-button detail-request" disabled={item.status !== "Available" || item.owner?._id === storedUser()?.id} onClick={startRequest}>{item.status !== "Available" ? "This piece is no longer available" : item.owner?._id === storedUser()?.id ? "This is your listing" : "Choose a piece to offer ↗"}</button>
               <p className="detail-privacy">Compare a piece from your wardrobe before sending a request. No money is exchanged.</p>
+              <ReportButton targetType="Listing" targetId={item._id} label="Report this listing" />
             </div>
           </article>
         </>}

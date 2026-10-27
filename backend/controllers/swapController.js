@@ -1,6 +1,5 @@
 const SwapRequest = require("../models/SwapRequest");
 const Clothing = require("../models/Clothing");
-const Payment = require("../models/Payment");
 
 // ==========================================
 // SEND SWAP REQUEST
@@ -90,11 +89,11 @@ const createSwapRequest = async (req, res) => {
         )
         .populate(
           "requester",
-          "name email location"
+          "name location profileImage"
         )
         .populate(
           "owner",
-          "name email location"
+          "name location profileImage"
         );
 
     res.status(201).json({
@@ -137,7 +136,7 @@ const getMySentRequests = async (
         )
         .populate(
           "owner",
-          "name email location"
+          "name location profileImage"
         )
         .sort({ createdAt: -1 });
 
@@ -180,7 +179,7 @@ const getReceivedRequests = async (
         )
         .populate(
           "requester",
-          "name email location"
+          "name location profileImage"
         )
         .sort({ createdAt: -1 });
 
@@ -230,25 +229,16 @@ const updateSwapShipping = async (req, res) => {
       return res.status(409).json({ message: "Delivery details are available after a swap is accepted" });
     }
 
-    const { deliveryMode, carrier, trackingNumber, trackingUrl, status, courierFee } = req.body;
+    const { deliveryMode, carrier, trackingNumber, trackingUrl, status } = req.body;
     if (deliveryMode !== undefined && !["Local", "Remote"].includes(deliveryMode)) {
       return res.status(400).json({ message: "Delivery mode must be Local or Remote" });
     }
     if (deliveryMode) request.deliveryMode = deliveryMode;
-    if (courierFee !== undefined && (!Number.isInteger(Number(courierFee)) || Number(courierFee) < 0 || Number(courierFee) > 100000)) {
-      return res.status(400).json({ message: "Courier amount must be a whole number from ₹0 to ₹1,00,000" });
-    }
-    if (courierFee !== undefined) {
-      const activePayment = await Payment.findOne({ swap: request._id, payer: userId, status: { $in: ["Pending", "Paid"] } });
-      if (activePayment && Number(courierFee) * 100 !== activePayment.amountPaise) {
-        return res.status(409).json({ message: "This amount already has a payment order or verified payment. Use that saved amount to avoid duplicate charges." });
-      }
-    }
-    if (request.deliveryMode === "Remote" && [carrier, trackingNumber, trackingUrl, status, courierFee].some((value) => value !== undefined)) {
+    if (request.deliveryMode === "Remote" && [carrier, trackingNumber, trackingUrl, status].some((value) => value !== undefined)) {
       let shipment = request.shipments.find((item) => item.sender.toString() === userId);
       if (!shipment) {
         if (!carrier?.trim()) return res.status(400).json({ message: "Choose a courier before saving shipment details" });
-        request.shipments.push({ sender: userId, carrier: carrier.trim(), trackingNumber: trackingNumber?.trim() || "", courierFee: Number(courierFee) || 0 });
+        request.shipments.push({ sender: userId, carrier: carrier.trim(), trackingNumber: trackingNumber?.trim() || "" });
         shipment = request.shipments[request.shipments.length - 1];
       }
       if (carrier !== undefined) {
@@ -272,7 +262,6 @@ const updateSwapShipping = async (req, res) => {
         if (!states.includes(status)) return res.status(400).json({ message: "Choose a valid shipment status" });
         shipment.status = status;
       }
-      if (courierFee !== undefined) shipment.courierFee = Number(courierFee);
     }
     await request.save();
     await request.populate("shipments.sender", "name");
