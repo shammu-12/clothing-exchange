@@ -2,6 +2,7 @@ services:
   - type: web
     name: rewear-api
     env: node
+    plan: free
     rootDir: backend
     buildCommand: npm ci
     startCommand: npm start
