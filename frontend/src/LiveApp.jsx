@@ -289,6 +289,19 @@ function Requests() {
     }
   };
 
+  const confirmCompletion = async (requestId) => {
+    setUpdating(requestId);
+    setError("");
+    try {
+      await API.post(`/swaps/${requestId}/completion`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to confirm swap completion.");
+    } finally {
+      setUpdating("");
+    }
+  };
+
   const list = requests[tab];
 
   return (
@@ -316,10 +329,11 @@ function Requests() {
                 {offer ? <div className="request-offer"><img src={imageUrl(offer.image)} alt=""/><span><small>{tab === "received" ? "THEIR OFFER" : "YOUR OFFER"}</small><b>{offer.title}</b><strong>₹{offer.estimatedValue || 0}</strong></span><span className="request-offer-arrow">↔</span><span className="request-wanted"><small>{tab === "received" ? "YOUR PIECE" : "THEIR PIECE"}</small><b>{wanted?.title}</b><strong>₹{wanted?.estimatedValue || 0}</strong></span></div> : <p className="live-muted">{request.message || "No message supplied"}</p>}
                 {offer && valueDifference !== null && <p className="request-value-note">{valueDifference === 0 ? "Estimated values match." : valueDifference > 0 ? `Offer estimated ₹${valueDifference} higher.` : `Offer estimated ₹${Math.abs(valueDifference)} lower.`} Values are guides for discussion; no money is exchanged.</p>}
                 {request.message && offer && <p className="request-message-text">“{request.message}”</p>}
-                {request.status === "Accepted" && <p className="exchange-hint">Use chat to agree on the item condition and arrange a local hand-off or delivery.</p>}
+                {request.status === "Accepted" && <p className="exchange-hint">Use chat to agree on the item condition and arrange a local hand-off or delivery. Both members confirm after the exchange.</p>}
                 <div className="live-actions">
                   {tab === "received" && request.status === "Pending" && <><button className="live-button" disabled={updating === request._id} onClick={() => update(request._id, "Accepted")}>{updating === request._id ? "Updating…" : "Accept request"}</button><button className="live-button danger" disabled={updating === request._id} onClick={() => update(request._id, "Rejected")}>Decline</button></>}
-                  {tab === "received" && request.status === "Accepted" && <button className="live-button" disabled={updating === request._id} onClick={() => update(request._id, "Completed")}>{updating === request._id ? "Updating…" : "Mark swap complete"}</button>}
+                  {request.status === "Accepted" && <button className="live-button" disabled={updating === request._id || request.completionConfirmations?.some((id) => (id?._id || id).toString() === storedUser()?.id)} onClick={() => confirmCompletion(request._id)}>{updating === request._id ? "Saving…" : request.completionConfirmations?.some((id) => (id?._id || id).toString() === storedUser()?.id) ? "You confirmed · waiting for member" : "Confirm exchange complete"}</button>}
+                  {request.status === "Completed" && <span className="exchange-hint">Confirmed by both members</span>}
                   <Link className="live-button secondary" to={`/chat/${request._id}`}>Open chat ↗</Link>
                 </div>
               </div>

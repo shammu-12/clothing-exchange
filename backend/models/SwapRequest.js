@@ -53,6 +53,8 @@ const swapRequestSchema = new mongoose.Schema(
 
     deliveryMode: { type: String, enum: ["Local", "Remote"], default: "Local" },
     shipments: { type: [shipmentSchema], default: [] },
+    completionConfirmations: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    completedAt: { type: Date, default: null },
   },
   {
     timestamps: true,

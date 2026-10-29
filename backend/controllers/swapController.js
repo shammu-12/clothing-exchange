@@ -282,9 +282,9 @@ const updateSwapRequest = async (
   try {
     const { status } = req.body;
 
-    if (!["Accepted", "Rejected", "Completed"].includes(status)) {
+    if (!["Accepted", "Rejected"].includes(status)) {
       return res.status(400).json({
-        message: "Status must be Accepted, Rejected, or Completed",
+        message: "Status must be Accepted or Rejected",
       });
     }
 
@@ -299,7 +299,7 @@ const updateSwapRequest = async (
       });
     }
 
-    // Only the owner can accept, reject, or confirm the completed exchange.
+    // Only the owner can accept or reject a pending request.
     if (request.owner.toString() !== req.user.id) {
       return res.status(403).json({
         message:
@@ -307,10 +307,7 @@ const updateSwapRequest = async (
       });
     }
 
-    if (status === "Completed" && request.status !== "Accepted") {
-      return res.status(400).json({ message: "Only an accepted swap can be completed" });
-    }
-    if (status !== "Completed" && request.status !== "Pending") {
+    if (request.status !== "Pending") {
       return res.status(400).json({ message: "This request has already been decided" });
     }
 
@@ -333,26 +330,6 @@ const updateSwapRequest = async (
           await Clothing.findOneAndUpdate({ _id: request.offeredClothing, status: "Reserved" }, { status: "Available" });
         }
         return res.status(409).json({ message: "This item is no longer available to swap" });
-      }
-    } else if (status === "Completed") {
-      if (request.offeredClothing) {
-        const offeredSwapped = await Clothing.findOneAndUpdate(
-          { _id: request.offeredClothing, status: "Reserved" },
-          { status: "Swapped" },
-          { new: true }
-        );
-        if (!offeredSwapped) return res.status(409).json({ message: "The offered item is no longer reserved for this swap" });
-      }
-      const swapped = await Clothing.findOneAndUpdate(
-        { _id: request.clothing, status: "Reserved" },
-        { status: "Swapped" },
-        { new: true }
-      );
-      if (!swapped) {
-        if (request.offeredClothing) {
-          await Clothing.findOneAndUpdate({ _id: request.offeredClothing, status: "Swapped" }, { status: "Reserved" });
-        }
-        return res.status(409).json({ message: "This listing is no longer reserved for this swap" });
       }
     }
 
@@ -383,6 +360,40 @@ const updateSwapRequest = async (
   }
 };
 
+const confirmSwapCompletion = async (req, res) => {
+  try {
+    const request = await SwapRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: "Swap request not found" });
+    const userId = req.user.id;
+    if (request.requester.toString() !== userId && request.owner.toString() !== userId) {
+      return res.status(403).json({ message: "Only swap participants can confirm completion" });
+    }
+    if (request.status !== "Accepted") return res.status(409).json({ message: "Only an accepted swap can be confirmed" });
+    if (!request.completionConfirmations.some((id) => id.toString() === userId)) {
+      request.completionConfirmations.push(userId);
+    }
+
+    if (request.completionConfirmations.length >= 2) {
+      const listingIds = [request.clothing, request.offeredClothing].filter(Boolean);
+      const reservedCount = await Clothing.countDocuments({ _id: { $in: listingIds }, status: "Reserved" });
+      if (reservedCount !== listingIds.length) {
+        return res.status(409).json({ message: "A listing is no longer reserved for this swap. Contact support." });
+      }
+      const result = await Clothing.updateMany({ _id: { $in: listingIds }, status: "Reserved" }, { $set: { status: "Swapped" } });
+      if (result.modifiedCount !== listingIds.length) {
+        return res.status(409).json({ message: "A listing is no longer reserved for this swap. Contact support." });
+      }
+      request.status = "Completed";
+      request.completedAt = new Date();
+    }
+    await request.save();
+    res.json({ message: request.status === "Completed" ? "Both members confirmed. Swap completed." : "Your confirmation is recorded. The swap will complete when the other member confirms.", request });
+  } catch (error) {
+    console.error("Confirm Swap Completion Error:", error);
+    res.status(500).json({ message: "Unable to confirm swap completion" });
+  }
+};
+
 module.exports = {
   createSwapRequest,
   getMySentRequests,
@@ -390,4 +401,5 @@ module.exports = {
   updateSwapRequest,
   getSwapDetails,
   updateSwapShipping,
+  confirmSwapCompletion,
 };

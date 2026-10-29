@@ -7,6 +7,7 @@ const {
   updateSwapRequest,
   getSwapDetails,
   updateSwapShipping,
+  confirmSwapCompletion,
 } = require("../controllers/swapController");
 
 const protect = require("../middleware/authMiddleware");
@@ -44,5 +45,6 @@ router.put(
 );
 
 router.patch("/:id/shipping", protect, updateSwapShipping);
+router.post("/:id/completion", protect, confirmSwapCompletion);
 
 module.exports = router;

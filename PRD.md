@@ -81,7 +81,7 @@ Fast fashion has increased clothing consumption, textile waste, and environmenta
 3. The listing owner can accept or decline a pending request. Acceptance reserves both items and closes other pending requests that involve either item.
 4. Both participants can view the conversation associated with their swap and send messages. Other members cannot read or send messages in it.
 5. Participants can agree on item condition, hand-off or delivery, and timing in the conversation. The platform does not book a courier or process payment.
-6. The listing owner can mark an accepted exchange as completed. Both listings then change to Swapped; only completed exchanges count as successful swaps.
+6. Either participant can confirm an accepted exchange as completed. Both participants must confirm; then both listings change to Swapped and only completed exchanges count as successful swaps.
 7. Members can view incoming and sent requests with both items, their current status, estimated value comparison, and a link to the associated chat.
 
 ### Dashboard and administration
@@ -161,7 +161,7 @@ The current dashboard exposes live member/listing/request totals and completed s
 
 ## Future enhancements
 
-- Two-sided completion confirmation and dispute handling.
+- Improved dispute handling and completion recovery for interrupted exchanges.
 - Courier integrations and shipment status.
 - Matching suggestions, richer sustainability-impact measurement, and community groups.
 - Native mobile app, virtual try-on, and condition verification.
